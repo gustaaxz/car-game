@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Polícia VS Ladrão — Versão Final Realista</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; font-family: Arial, sans-serif; background: #111; }
+    canvas { display: block; }
+    .screen { position: fixed; inset: 0; display: grid; place-items: center; color: #fff; background: rgba(0,0,0,.58); z-index: 10; }
+    .panel { text-align: center; max-width: 700px; padding: 28px; }
+    .panel h1 { margin: 0 0 10px; font-size: 34px; }
+    .panel p { margin: 8px 0; line-height: 1.45; color: #ddd; }
+    button { margin-top: 18px; border: 0; border-radius: 8px; padding: 12px 20px; font-size: 16px; font-weight: 700; cursor: pointer; }
+    .hidden { display: none !important; }
+
+    #wantedHud { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 5; min-width: 430px; padding: 10px 18px 12px; border-radius: 10px; color: #fff; background: rgba(8,12,16,.76); border: 1px solid rgba(255,255,255,.14); text-align: center; pointer-events: none; backdrop-filter: blur(4px); }
+    #wantedStars { color: #f2d250; font-size: 23px; letter-spacing: 2px; text-shadow: 0 1px 5px #000; }
+    #wantedMeta { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 4px; font: 700 12px/1.2 Arial, sans-serif; }
+    #scoreMeta { display: flex; justify-content: center; align-items: baseline; gap: 9px; margin-top: 7px; }
+    #scoreValue { font: 800 20px/1 monospace; }
+    #multiplierValue { font: 700 11px/1 Arial, sans-serif; color: #ccd7e0; }
+    #comboValue { font: 800 12px/1 Arial, sans-serif; color: #f2d250; }
+    #comboBar { height: 5px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.12); }
+    #comboBarFill { width: 0%; height: 100%; background: linear-gradient(90deg,#f2d250,#ff8a35,#ff4141); transition: width .12s linear; }
+    #wantedLabel.maximum { color: #ff5454; }
+    #wantedTime { font-family: monospace; font-size: 13px; }
+    #policeCount { color: #ccd7e0; }
+
+    #captureHud { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 5; width: min(440px, calc(100vw - 40px)); color: #fff; pointer-events: none; }
+    #captureMeta { display: flex; justify-content: space-between; margin-bottom: 6px; font: 800 12px/1 Arial, sans-serif; text-shadow: 0 1px 4px #000; }
+    #captureTrack { height: 15px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(5,8,10,.72); box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+    #captureBarFill { width: 0%; height: 100%; background: linear-gradient(90deg,#d9d9d9,#ff9a42,#ff3131); transition: width .1s linear; }
+
+
+    #vehicleHud { position: fixed; right: 18px; bottom: 28px; z-index: 5; width: 250px; padding: 10px 12px; color: #fff; border-radius: 9px; background: rgba(8,12,16,.72); border: 1px solid rgba(255,255,255,.14); pointer-events: none; }
+    #vehicleMeta { display: flex; justify-content: space-between; font: 800 11px/1 Arial, sans-serif; margin-bottom: 7px; }
+    #integrityTrack { height: 9px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.12); }
+    #integrityBarFill { width: 100%; height: 100%; background: linear-gradient(90deg,#d94848,#e2b84a,#75c46b); transition: width .12s linear; }
+
+    .menuActions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    button.secondary { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.18); }
+    button:disabled { cursor: default; opacity: .56; }
+    .compactButton { margin: 0; padding: 10px 14px; }
+    #gameOverRewards { display: flex; justify-content: center; gap: 12px; margin-top: 12px; font-weight: 800; }
+    #gameOverRewards span { padding: 8px 12px; border-radius: 7px; background: rgba(255,255,255,.09); }
+    #gameOverRecord { min-height: 20px; color: #f2d250; font-weight: 800; }
+
+    #garage { overflow: auto; place-items: start center; padding: 24px; }
+    .garagePanel { width: min(1080px, 100%); color: #fff; padding: 24px; border-radius: 14px; background: rgba(8,12,16,.94); border: 1px solid rgba(255,255,255,.14); }
+    .garageHeader { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+    .garageHeader h1 { margin: 0; }
+    .garageHeader p { margin: 6px 0 0; color: #bfc7cf; }
+    #garageProfile { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 20px 0; padding: 12px 14px; border-radius: 9px; background: rgba(255,255,255,.06); }
+    #garageProfile span, #garageProfile b { font-size: 13px; }
+    #garageGrid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+    .garageCard { padding: 15px; border-radius: 10px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.1); }
+    .garageCard.selected { border-color: #f2d250; box-shadow: inset 0 0 0 1px rgba(242,210,80,.25); }
+    .garageCard header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .garageCard header strong { font-size: 18px; }
+    .garageCard header small { color: #aeb8c2; text-align: right; }
+    .garageCard p { min-height: 48px; color: #bdc5cd; font-size: 13px; line-height: 1.35; }
+    .garageCard button { width: 100%; min-height: 42px; margin-top: 13px; font-size: 12px; }
+    .garageStat { display: grid; grid-template-columns: 78px 1fr; align-items: center; gap: 8px; margin: 8px 0; font-size: 11px; text-transform: uppercase; }
+    .garageStat > div { height: 6px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.1); }
+    .garageStat i { display: block; height: 100%; border-radius: inherit; background: #d4d9df; }
+    #garageMessage { min-height: 20px; margin-bottom: 0; color: #f2d250; font-weight: 700; }
+    @media (max-width: 900px) { #garageGrid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    @media (max-width: 560px) { #garageGrid { grid-template-columns: 1fr; } #garage { padding: 10px; } }
+
+    #debug { position: fixed; left: 12px; bottom: 12px; z-index: 5; color: #fff; background: rgba(0,0,0,.52); padding: 9px 11px; border-radius: 6px; font: 12px/1.45 monospace; white-space: pre; pointer-events: none; }
+    .result { display: flex; justify-content: center; gap: 26px; margin-top: 18px; }
+    .result div { min-width: 120px; padding: 12px; border-radius: 8px; background: rgba(255,255,255,.08); }
+    .result strong { display: block; margin-top: 6px; font: 800 21px/1 monospace; }
+
+
+    /* FASE 17 — HUD principal */
+    #gameHud { position: fixed; inset: 0; z-index: 6; pointer-events: none; color: #fff; }
+    .hudPanel { background: linear-gradient(180deg, rgba(8,13,18,.86), rgba(8,13,18,.68)); border: 1px solid rgba(255,255,255,.13); box-shadow: 0 12px 28px rgba(0,0,0,.23); backdrop-filter: blur(7px); }
+    #wantedHud { top: 18px; left: 18px; transform: none; min-width: 0; width: 300px; padding: 13px 15px 14px; border-radius: 12px; text-align: left; }
+    #wantedHeader { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    #wantedStars { font-size: 19px; letter-spacing: 1px; white-space: nowrap; }
+    #wantedMeta { justify-content: flex-start; gap: 9px; margin-top: 6px; font-size: 11px; }
+    #wantedTime { margin-left: auto; font-size: 14px; color: #fff; }
+    #policeCount { display: block; margin-top: 7px; font: 700 10px/1 Arial,sans-serif; letter-spacing: .08em; color: #aebac5; }
+
+    #scoreHud { position: fixed; top: 18px; left: 50%; transform: translateX(-50%); min-width: 300px; padding: 10px 16px 12px; border-radius: 12px; text-align: center; }
+    #scoreTitle { color: #aebac5; font: 700 9px/1 Arial,sans-serif; letter-spacing: .18em; }
+    #scoreValue { display: block; margin-top: 4px; font: 900 28px/1 monospace; }
+    #scoreMeta { margin-top: 7px; gap: 12px; font-size: 10px; }
+    #comboBar { margin-top: 8px; }
+
+    #minimapHud { position: fixed; right: 18px; top: 18px; width: 238px; padding: 8px; border-radius: 50%; aspect-ratio: 1; }
+    #minimapCanvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+    #minimapLegend { position: absolute; right: 5px; bottom: -24px; display: flex; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 7px; background: rgba(8,13,18,.72); border: 1px solid rgba(255,255,255,.1); font: 700 9px/1 Arial,sans-serif; white-space: nowrap; }
+    .legendDot { display:inline-block; width:7px; height:7px; margin-right:3px; border-radius:50%; vertical-align:middle; }
+    .legendPlayer { background:#5ce7ff; } .legendPolice { background:#ff4545; } .legendRoadblock { background:#ff9b39; border-radius:1px; } .legendPower { background:#f2d250; border-radius:1px; transform:rotate(45deg); }
+
+    #speedHud { position: fixed; right: 22px; bottom: 26px; width: 240px; padding: 14px 15px; border-radius: 12px; }
+    #speedRow { display: flex; align-items: flex-end; justify-content: space-between; }
+    #speedValue { font: 900 45px/.82 monospace; letter-spacing: -3px; }
+    #speedUnit { margin-left: 7px; color: #aebac5; font: 700 10px/1 Arial,sans-serif; }
+    #speedGear { min-width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: rgba(255,255,255,.08); font: 900 18px/1 monospace; }
+    #vehicleMeta { margin: 15px 0 7px; }
+    #vehicleHud { position: static; width: auto; padding: 0; border: 0; background: none; }
+    #integrityTrack { height: 8px; }
+    #activeEffects { min-height: 23px; display:flex; gap:6px; margin-top:10px; }
+    .effectPill { display:none; align-items:center; gap:5px; padding:5px 7px; border-radius:6px; background:rgba(255,255,255,.08); font:800 9px/1 Arial,sans-serif; letter-spacing:.04em; }
+    .effectPill.active { display:flex; }
+    #effectNitro { color:#ffb37c; } #effectJammer { color:#80e9ff; }
+
+    #captureHud { left: 50%; bottom: 26px; width: min(510px, calc(100vw - 580px)); padding: 10px 13px 12px; border-radius: 10px; }
+    #captureMeta { margin-bottom: 7px; font-size: 10px; letter-spacing:.05em; }
+    #captureTrack { height: 11px; }
+    #captureBarFill[data-danger="safe"] { background: linear-gradient(90deg,#d8e3e8,#9ebccc); }
+    #captureBarFill[data-danger="warning"] { background: linear-gradient(90deg,#e4bc55,#ff9142); }
+    #captureBarFill[data-danger="critical"] { background: linear-gradient(90deg,#ff8a42,#ff3131); }
+    #integrityBarFill[data-state="safe"] { background: linear-gradient(90deg,#5ba768,#75c46b); }
+    #integrityBarFill[data-state="warning"] { background: linear-gradient(90deg,#d8a746,#e2b84a); }
+    #integrityBarFill[data-state="critical"] { background: linear-gradient(90deg,#c83f3f,#e25555); }
+
+    #debug { display: none; }
+    @media (max-width: 900px) {
+      #wantedHud { width: 250px; }
+      #scoreHud { top: 122px; left: 18px; transform:none; min-width:0; width:250px; }
+      #minimapHud { width: 190px; }
+      #speedHud { width: 205px; }
+      #captureHud { width: min(420px, calc(100vw - 40px)); bottom: 150px; }
+    }
+    @media (max-width: 620px) {
+      #wantedHud { top: 10px; left: 10px; width: calc(100vw - 145px); }
+      #scoreHud { top: 109px; left: 10px; width: 210px; }
+      #minimapHud { top:10px; right:10px; width:125px; padding:5px; }
+      #minimapLegend { display:none; }
+      #speedHud { right:10px; bottom:12px; width:180px; }
+      #speedValue { font-size:36px; }
+      #captureHud { left:10px; transform:none; bottom:130px; width:calc(100vw - 20px); }
+    }
+
+    /* FASE 20 — GAME OVER completo */
+    #gameOver .panel { width: min(760px, calc(100vw - 28px)); max-width: 760px; padding: 30px; border-radius: 16px; background: rgba(8,12,16,.94); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 24px 80px rgba(0,0,0,.42); }
+    #gameOver .result { display:grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap:10px; }
+    #gameOver .result div { min-width:0; text-transform:uppercase; color:#aebac5; font-size:10px; letter-spacing:.08em; }
+    #gameOver .result strong { color:#fff; font-size:20px; letter-spacing:0; }
+    #gameOver .recordStrip { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+    #gameOver .recordStrip div { padding:10px 12px; border-radius:8px; background:rgba(255,255,255,.06); color:#aebac5; font-size:10px; text-transform:uppercase; }
+    #gameOver .recordStrip strong { display:block; margin-top:5px; color:#fff; font:800 17px/1 monospace; }
+    @media (max-width:620px) { #gameOver .result { grid-template-columns:1fr 1fr; } #gameOver .recordStrip { grid-template-columns:1fr; } }
+
+    /* FASE 22 — RANKING GLOBAL */
+    #ranking { overflow:auto; place-items:start center; padding:24px; }
+    .rankingPanel { width:min(900px,100%); padding:24px; border-radius:14px; color:#fff; background:rgba(8,12,16,.96); border:1px solid rgba(255,255,255,.14); }
+    .rankingHeader { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+    .rankingHeader h1 { margin:0; } .rankingHeader p { margin:6px 0 0; color:#aebac5; }
+    .rankingTabs { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 14px; }
+    .rankingTabs button { margin:0; padding:8px 12px; font-size:11px; background:rgba(255,255,255,.08); color:#d7dfe6; border:1px solid rgba(255,255,255,.12); }
+    .rankingTabs button.active { background:#fff; color:#111; }
+    #rankingStatus { min-height:20px; color:#aebac5; font-size:12px; }
+    .rankingTable { width:100%; border-collapse:collapse; font-size:12px; }
+    .rankingTable th { color:#8fa0ad; font-size:9px; letter-spacing:.1em; text-align:left; padding:8px 10px; border-bottom:1px solid rgba(255,255,255,.1); }
+    .rankingTable td { padding:10px; border-bottom:1px solid rgba(255,255,255,.06); }
+    .rankingTable tr.me { background:rgba(242,210,80,.09); }
+    .rankingTable .rank { width:54px; font-weight:900; color:#f2d250; }
+    .rankingTable .score { font-family:monospace; font-weight:900; font-size:14px; }
+    #rankingMe { margin-top:14px; padding:10px 12px; border-radius:8px; background:rgba(255,255,255,.055); color:#cbd5dc; font-size:12px; }
+    @media(max-width:620px){ #ranking{padding:10px}.rankingPanel{padding:15px}.rankingTable th:nth-child(5),.rankingTable td:nth-child(5){display:none} }
+
+
+    /* FASE 25 — POLIMENTO FINAL */
+    body::after {
+      content:""; position:fixed; inset:0; z-index:3; pointer-events:none;
+      background:radial-gradient(circle at 50% 46%, transparent 38%, rgba(0,0,0,.12) 72%, rgba(0,0,0,.32) 100%);
+      mix-blend-mode:multiply;
+    }
+    #screenFxLayer { position:fixed; inset:0; z-index:4; pointer-events:none; overflow:hidden; }
+    #speedFx, #dangerFx, #impactFx { position:absolute; inset:-12%; pointer-events:none; opacity:0; }
+    #speedFx { --speed-stretch:1; transition:opacity .12s linear; transform:scale(var(--speed-stretch)); }
+    #speedFx::before {
+      content:""; position:absolute; inset:-22%;
+      background:repeating-conic-gradient(from 0deg at 50% 50%, transparent 0 5deg, rgba(218,238,255,.17) 5.35deg 5.7deg, transparent 6deg 12deg);
+      -webkit-mask-image:radial-gradient(circle, transparent 0 31%, #000 53%, #000 100%);
+      mask-image:radial-gradient(circle, transparent 0 31%, #000 53%, #000 100%);
+      animation:speedRush .24s linear infinite;
+    }
+    #dangerFx {
+      inset:0; transition:opacity .15s linear;
+      background:radial-gradient(circle at center, transparent 47%, rgba(206,24,40,.08) 68%, rgba(206,24,40,.48) 100%);
+      box-shadow:inset 0 0 90px rgba(255,40,48,.18);
+    }
+    #dangerFx.critical { animation:dangerPulse .72s ease-in-out infinite alternate; }
+    #impactFx { inset:0; background:#fff; mix-blend-mode:screen; transition:opacity .08s linear; }
+    #toastLayer { position:fixed; top:112px; left:50%; transform:translateX(-50%); z-index:8; display:grid; gap:7px; width:min(420px,calc(100vw - 30px)); pointer-events:none; }
+    .gameToast {
+      justify-self:center; max-width:100%; padding:8px 13px; border-radius:7px; color:#fff;
+      background:rgba(7,11,15,.86); border:1px solid rgba(255,255,255,.14); box-shadow:0 8px 24px rgba(0,0,0,.28);
+      font:800 11px/1.1 Arial,sans-serif; letter-spacing:.08em; text-transform:uppercase;
+      transform:translateY(-9px) scale(.96); opacity:0; transition:transform .18s ease, opacity .18s ease;
+      backdrop-filter:blur(7px);
+    }
+    .gameToast.show { transform:translateY(0) scale(1); opacity:1; }
+    .gameToast.danger { border-color:rgba(255,82,82,.55); color:#ffb3b3; }
+    .gameToast.wanted { border-color:rgba(242,210,80,.55); color:#ffe887; }
+    .gameToast.power { border-color:rgba(89,214,255,.55); color:#9cecff; }
+    .gameToast.bonus, .gameToast.combo { border-color:rgba(255,177,72,.55); color:#ffd08d; }
+
+    .hudPanel { transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+    .hudPulse { animation:hudPulse .48s ease-out; }
+    .comboBurst { animation:comboBurst .42s ease-out; }
+    #wantedStars { filter:drop-shadow(0 0 5px rgba(242,210,80,.28)); }
+    #speedValue { text-shadow:0 0 18px rgba(107,208,255,.12); }
+    #speedHud:has(#effectNitro.active) #speedValue { color:#ffd0a3; text-shadow:0 0 18px rgba(255,128,49,.45); }
+    #captureBarFill[data-danger="critical"] { animation:capturePulse .62s ease-in-out infinite alternate; }
+    #integrityBarFill[data-state="critical"] { animation:capturePulse .72s ease-in-out infinite alternate; }
+
+    #menu .panel, #pause .panel {
+      width:min(720px,calc(100vw - 30px)); padding:34px; border-radius:18px;
+      background:linear-gradient(180deg,rgba(8,13,18,.93),rgba(8,13,18,.82));
+      border:1px solid rgba(255,255,255,.14); box-shadow:0 30px 90px rgba(0,0,0,.42); backdrop-filter:blur(12px);
+      animation:panelIn .36s ease-out;
+    }
+    #menu h1 { font-size:clamp(34px,5vw,54px); letter-spacing:-.045em; text-transform:uppercase; }
+    #menu h1::after { content:"FINAL"; display:inline-block; margin-left:10px; padding:4px 7px; transform:translateY(-7px); border-radius:5px; color:#111; background:#f2d250; font:900 9px/1 Arial,sans-serif; letter-spacing:.12em; }
+    #gameOver:not(.hidden) .panel, #garage:not(.hidden) .garagePanel, #ranking:not(.hidden) .rankingPanel { animation:panelIn .34s ease-out; }
+    button { transition:transform .13s ease, filter .13s ease, background .13s ease; }
+    button:hover:not(:disabled) { transform:translateY(-2px); filter:brightness(1.08); }
+    button:active:not(:disabled) { transform:translateY(0) scale(.985); }
+
+    @keyframes speedRush { from{ transform:rotate(0deg) scale(1); } to{ transform:rotate(6deg) scale(1.035); } }
+    @keyframes dangerPulse { from{ filter:saturate(.9); } to{ filter:saturate(1.35) brightness(1.12); } }
+    @keyframes hudPulse { 0%{ scale:1; } 45%{ scale:1.045; border-color:rgba(242,210,80,.65); box-shadow:0 0 30px rgba(242,210,80,.16); } 100%{ scale:1; } }
+    @keyframes comboBurst { 0%{ scale:1; } 45%{ scale:1.055; box-shadow:0 0 34px rgba(255,150,60,.22); } 100%{ scale:1; } }
+    @keyframes capturePulse { from{ filter:brightness(.92); } to{ filter:brightness(1.28); } }
+    @keyframes panelIn { from{ opacity:0; transform:translateY(14px) scale(.985); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+    @media (prefers-reduced-motion: reduce) {
+      #speedFx::before, #dangerFx.critical, .hudPulse, .comboBurst, #captureBarFill, #integrityBarFill,
+      #menu .panel, #gameOver .panel, #garage .garagePanel, #ranking .rankingPanel { animation:none !important; }
+      * { scroll-behavior:auto !important; transition-duration:.01ms !important; }
+    }
+
+  </style>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div id="screenFxLayer" aria-hidden="true"><div id="speedFx"></div><div id="dangerFx"></div><div id="impactFx"></div></div>
+  <div id="toastLayer" aria-live="polite" aria-atomic="false"></div>
+  <div id="menu" class="screen">
+    <div class="panel">
+      <h1>Polícia VS Ladrão</h1>
+      <p>Versão final — Fases 1–18, 20–22 e 24–25</p>
+      <p>Sobreviva à perseguição, acumule XP e dinheiro, bata recordes e desbloqueie veículos com estilos diferentes de condução.</p>
+      <p><b>W</b> acelerar · <b>S</b> frear/ré · <b>A/D</b> virar · <b>Espaço</b> freio de mão · <b>Esc</b> pausar</p>
+      <div class="menuActions"><button id="startButton">INICIAR PERSEGUIÇÃO</button><button id="openGarageButton" class="secondary">GARAGEM</button><button id="openRankingButton" class="secondary">RANKING</button></div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden"><div class="panel"><h1>Pausado</h1><p>Pressione Esc para continuar.</p></div></div>
+
+  <div id="gameOver" class="screen hidden">
+    <div class="panel">
+      <h1>VOCÊ FOI CAPTURADO</h1>
+      <p>A pressão policial chegou a 100%.</p>
+      <div class="result">
+        <div>Tempo sobrevivido<strong id="gameOverTime">00:00</strong></div>
+        <div>Pontuação<strong id="gameOverScore">0</strong></div>
+        <div>Maior procurado<strong id="gameOverWanted">NÍVEL 1</strong></div>
+        <div>Policiais despistados<strong id="gameOverEvaded">0</strong></div>
+        <div>XP recebido<strong id="gameOverXp">+0 XP</strong></div>
+        <div>Dinheiro recebido<strong id="gameOverCash">+C$ 0</strong></div>
+      </div>
+      <div class="recordStrip">
+        <div>Recorde de tempo<strong id="gameOverBestTime">00:00</strong></div>
+        <div>Recorde de pontos<strong id="gameOverBestScore">0</strong></div>
+      </div>
+      <p id="gameOverRecord"></p>
+      <div class="menuActions"><button id="restartButton">JOGAR NOVAMENTE</button><button id="gameOverGarageButton" class="secondary">GARAGEM</button><button id="gameOverRankingButton" class="secondary">RANKING</button><button id="gameOverMenuButton" class="secondary">MENU</button></div>
+    </div>
+  </div>
+
+  <div id="garage" class="screen hidden">
+    <div class="garagePanel">
+      <div class="garageHeader"><div><h1>GARAGEM</h1><p>Escolha o veículo para a próxima fuga.</p></div><button id="garageBackButton" class="secondary compactButton">VOLTAR</button></div>
+      <div id="garageProfile"></div>
+      <div id="garageGrid"></div>
+      <p id="garageMessage"></p>
+    </div>
+  </div>
+
+
+  <div id="ranking" class="screen hidden">
+    <div class="rankingPanel">
+      <div class="rankingHeader"><div><h1>RANKING</h1><p>Melhor fuga de cada jogador no período.</p></div><button id="rankingBackButton" class="secondary compactButton">VOLTAR</button></div>
+      <div class="rankingTabs">
+        <button data-ranking-period="daily">DIÁRIO</button>
+        <button data-ranking-period="weekly">SEMANAL</button>
+        <button data-ranking-period="monthly">MENSAL</button>
+        <button data-ranking-period="global" class="active">GLOBAL</button>
+      </div>
+      <p id="rankingStatus">Carregando ranking…</p>
+      <div style="overflow-x:auto"><table class="rankingTable"><thead><tr><th>#</th><th>JOGADOR</th><th>PONTOS</th><th>TEMPO</th><th>PROCURADO</th><th>CARRO</th></tr></thead><tbody id="rankingBody"></tbody></table></div>
+      <div id="rankingMe">Sua posição aparecerá aqui após registrar uma partida.</div>
+    </div>
+  </div>
+
+  <div id="gameHud" class="hidden">
+    <div id="wantedHud" class="hudPanel">
+      <div id="wantedHeader"><span id="wantedStars">★ ☆ ☆ ☆ ☆ ☆</span><span id="wantedTime">00:00</span></div>
+      <div id="wantedMeta"><span id="wantedLabel">NÍVEL 1</span></div>
+      <span id="policeCount">1 VIATURA</span>
+    </div>
+
+    <div id="scoreHud" class="hudPanel">
+      <div id="scoreTitle">PONTUAÇÃO</div>
+      <span id="scoreValue">0</span>
+      <div id="scoreMeta"><span id="multiplierValue">PROCURADO x1.0</span><span id="comboValue">COMBO x1.0</span></div>
+      <div id="comboBar"><div id="comboBarFill"></div></div>
+    </div>
+
+    <div id="minimapHud" class="hudPanel">
+      <canvas id="minimapCanvas" width="440" height="440"></canvas>
+      <div id="minimapLegend"><span><i class="legendDot legendPlayer"></i>VOCÊ</span><span><i class="legendDot legendPolice"></i>POLÍCIA</span><span><i class="legendDot legendRoadblock"></i>BLOQUEIO</span><span><i class="legendDot legendPower"></i>POWER-UP</span></div>
+    </div>
+
+    <div id="captureHud" class="hudPanel">
+      <div id="captureMeta"><span id="captureStatus">ESCAPANDO</span><span>CAPTURA <b id="captureValue">0%</b></span></div>
+      <div id="captureTrack"><div id="captureBarFill" data-danger="safe"></div></div>
+    </div>
+
+    <div id="speedHud" class="hudPanel">
+      <div id="speedRow"><div><span id="speedValue">000</span><span id="speedUnit">KM/H</span></div><span id="speedGear">N</span></div>
+      <div id="vehicleHud">
+        <div id="vehicleMeta"><span id="damageStatus">INTEGRIDADE</span><span id="integrityValue">100%</span></div>
+        <div id="integrityTrack"><div id="integrityBarFill" data-state="safe"></div></div>
+      </div>
+      <div id="activeEffects"><span id="effectNitro" class="effectPill">NITRO <b id="nitroTime"></b></span><span id="effectJammer" class="effectPill">JAMMER <b id="jammerTime"></b></span></div>
+    </div>
+  </div>
+
+  <div id="debug"></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

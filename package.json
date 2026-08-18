@@ -1,0 +1,11 @@
+{
+  "name": "policia-vs-ladrao-final",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node tests/test-final.mjs"
+  },
+  "engines": { "node": ">=18" }
+}
