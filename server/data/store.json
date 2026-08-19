@@ -1,4 +1,45 @@
 {
   "version": 1,
-  "players": {}
+  "players": {
+    "e91ae7a7-0e8e-46f7-aec1-9afb1fbd6a05": {
+      "id": "e91ae7a7-0e8e-46f7-aec1-9afb1fbd6a05",
+      "createdAt": "2026-08-19T15:22:19.721Z",
+      "updatedAt": "2026-08-19T16:31:15.862Z",
+      "profile": {
+        "totalXp": 4676,
+        "cash": 1811,
+        "runs": 4,
+        "bestTimeSeconds": 192.33255999999818,
+        "bestScore": 11814,
+        "selectedVehicleId": "COMPACT",
+        "unlockedVehicleIds": [
+          "COMPACT"
+        ]
+      },
+      "runs": [
+        {
+          "id": "de51aef0-86f3-45ec-9b97-35868d2edce3",
+          "createdAt": "2026-08-19T16:27:53.753Z",
+          "timeSeconds": 96.30007999999987,
+          "score": 3104,
+          "maxWantedLevel": 3,
+          "policeEvaded": 3,
+          "vehicleId": "COMPACT",
+          "xpGained": 777,
+          "cashGained": 312
+        },
+        {
+          "id": "90909df1-0e00-4aba-a59e-2f9c793e062c",
+          "createdAt": "2026-08-19T16:31:12.453Z",
+          "timeSeconds": 192.33255999999818,
+          "score": 10734,
+          "maxWantedLevel": 4,
+          "policeEvaded": 30,
+          "vehicleId": "COMPACT",
+          "xpGained": 1755,
+          "cashGained": 676
+        }
+      ]
+    }
+  }
 }

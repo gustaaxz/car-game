@@ -334,32 +334,46 @@ export class Game {
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(innerWidth, innerHeight);
     });
+
+    window.addEventListener('keydown', (e) => {
+      if (this.states.is(GameState.MENU) && !this.garageOpen && !this.rankingOpen) {
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          this.startGame();
+        }
+      }
+    });
   }
 
   startGame() {
-    this.garageOpen = false;
-    this.rankingOpen = false;
-    this.garage.applySelectedVehicle();
-    this.progression.beginRun();
-    this.polishClock = 0;
-    this.player.reset();
-    this.wanted.reset();
-    this.traffic.reset();
-    this.policeManager.reset();
-    this.score.reset();
-    this.combo.reset();
-    this.capture.reset();
-    this.damage.reset();
-    this.vehicleCollisions.reset();
-    this.dynamicEvents.reset();
-    this.powerUps.reset();
-    this.performance.reset();
-    this.visualPolish.reset();
-    this.vehicleRealism.reset();
-    this.screenFeedback.reset({ player: this.player, wanted: this.wanted, powerUps: this.powerUps, score: this.score });
-    this.followCamera.snapTo(this.player);
-    this._updateHud();
-    this.states.set(GameState.PLAYING);
+    try {
+      this.garageOpen = false;
+      this.rankingOpen = false;
+      this.garage.applySelectedVehicle();
+      this.progression.beginRun();
+      this.polishClock = 0;
+      this.player.reset();
+      this.wanted.reset();
+      this.traffic.reset();
+      this.policeManager.reset();
+      this.score.reset();
+      this.combo.reset();
+      this.capture.reset();
+      this.damage.reset();
+      this.vehicleCollisions.reset();
+      this.dynamicEvents.reset();
+      this.powerUps.reset();
+      this.performance.reset();
+      this.visualPolish.reset();
+      this.vehicleRealism.reset();
+      this.screenFeedback.reset({ player: this.player, wanted: this.wanted, powerUps: this.powerUps, score: this.score });
+      this.followCamera.snapTo(this.player);
+      this._updateHud();
+      this.states.set(GameState.PLAYING);
+      console.log('Perseguição iniciada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao iniciar perseguição:', err);
+    }
   }
 
   update(deltaTime) {

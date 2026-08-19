@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { VehicleModelFactory } from '../entities/VehicleModelFactory.js';
 
 export class RoadblockSystem {
   constructor(scene, city, player) {
@@ -154,9 +153,8 @@ export class RoadblockSystem {
       }
     }
 
-    // Viaturas posicionadas nos cantos do bloqueio
     for (const side of [-1, 1]) {
-      const car = VehicleModelFactory.buildPoliceCar('STANDARD');
+      const car = this._createParkedPoliceCar({ dark, concrete, glass, red, blue, tire });
       if (orientation === 'x') {
         car.position.set(side * 7.2, 0, side * 3.25);
         car.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -169,7 +167,6 @@ export class RoadblockSystem {
       group.add(car);
     }
 
-    // Cones de sinalização
     for (const offset of [-1.3, 0, 1.3]) {
       const cone = new THREE.Group();
       const base = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.08, 0.62), tire);
@@ -180,19 +177,6 @@ export class RoadblockSystem {
       if (orientation === 'x') cone.position.set(offset, 0, 0);
       else cone.position.set(0, 0, offset);
       group.add(cone);
-    }
-
-    // Policiais em pé ao lado das barreiras
-    for (const offset of [-2.8, 2.8]) {
-      const officer = VehicleModelFactory.buildPoliceOfficer();
-      if (orientation === 'x') {
-        officer.position.set(offset, 0, 1.5);
-        officer.rotation.y = Math.PI;
-      } else {
-        officer.position.set(1.5, 0, offset);
-        officer.rotation.y = Math.PI / 2;
-      }
-      group.add(officer);
     }
 
     this.scene.add(group);

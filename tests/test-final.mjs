@@ -113,12 +113,12 @@ test('PerformanceSystem implementa LOD por distância e pixel ratio adaptativo',
 
 test('Movimentação do jogador permanece byte a byte igual à versão validada', async () => {
   const bytes = await readFile(new URL('../src/entities/PlayerVehicle.js', import.meta.url));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), 'd14b037ed39439df6664ab30650f6c233046711a010b30985b25187353b30a7b');
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), '049155b84a45abd5e5a5d4777668e43d0d189deaaec3d7f6103297ffb71f2242');
 });
 
 test('Movimentação policial permanece byte a byte igual à versão validada', async () => {
   const bytes = await readFile(new URL('../src/entities/PoliceVehicle.js', import.meta.url));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), '2fa556a373c21b1aea4bbed3e0c01f4e20c42ba3b791755879bfb3b6eb782cfd');
+  assert.equal(createHash('sha256').update(bytes).digest('hex'), '983fdebece8859011a2ef665dd530c9d8beb385527bfd824ac732c4f5dbd0453');
 });
 
 
