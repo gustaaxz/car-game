@@ -35,27 +35,43 @@ export class VehicleCollisionSystem {
     } else this._normal.multiplyScalar(1 / distance);
 
     const overlap = minDistance - distance;
-    player.object3D.position.addScaledVector(this._normal, overlap * 0.62);
-    other.object3D.position.addScaledVector(this._normal, -overlap * 0.38);
+    // Separação posicional — empurra os veículos para fora um do outro
+    player.object3D.position.addScaledVector(this._normal, overlap * 0.65);
+    other.object3D.position.addScaledVector(this._normal, -overlap * 0.35);
 
     this._relative.copy(player.velocity).sub(other.velocity ?? this._zeroVector());
     const relativeSpeed = Math.abs(this._relative.dot(this._normal));
     const impactKmh = Math.max(relativeSpeed * 3.6, this._relative.length() * 2.25);
 
+    // Reflexão da velocidade apenas na componente NORMAL à colisão.
+    // Isso faz o player "quicar" para fora mas manter a velocidade tangencial
+    // (ao longo da superfície de contato), permitindo continuar acelerando.
     const playerNormalSpeed = player.velocity.dot(this._normal);
-    if (playerNormalSpeed < 0) player.velocity.addScaledVector(this._normal, -playerNormalSpeed * 1.15);
-    player.velocity.multiplyScalar(label === 'police-vehicle' ? 0.72 : 0.79);
+    if (playerNormalSpeed < 0) {
+      // Bounce: reflete a componente normal com um fator de restituição
+      const bounceFactor = label === 'police-vehicle' ? 0.55 : 0.65;
+      player.velocity.addScaledVector(this._normal, -playerNormalSpeed * (1 + bounceFactor));
+    }
+    // NÃO aplicar multiplyScalar global — isso drenava toda a velocidade a cada frame.
+    // Apenas um leve atrito instantâneo na velocidade tangencial para sentir o impacto.
+    const isPolice = label === 'police-vehicle';
+    const frictionFactor = isPolice ? 0.94 : 0.92;
+    player.velocity.multiplyScalar(frictionFactor);
 
     if (other.velocity) {
       const otherNormalSpeed = other.velocity.dot(this._normal);
-      if (otherNormalSpeed > 0) other.velocity.addScaledVector(this._normal, -otherNormalSpeed * 0.8);
-      other.velocity.multiplyScalar(0.76);
+      if (otherNormalSpeed > 0) {
+        const otherBounce = isPolice ? 0.45 : 0.5;
+        other.velocity.addScaledVector(this._normal, -otherNormalSpeed * (1 + otherBounce));
+      }
+      // A polícia também perde velocidade no impacto, criando pancada mais realista
+      other.velocity.multiplyScalar(isPolice ? 0.88 : 0.78);
     }
 
     const key = `${label}:${other.collisionId ?? other.object3D.uuid ?? 'vehicle'}`;
     if ((this.pairCooldowns.get(key) ?? 0) <= 0) {
       player.registerExternalCollision(label, impactKmh);
-      this.pairCooldowns.set(key, 0.7);
+      this.pairCooldowns.set(key, 0.45);
     }
   }
 

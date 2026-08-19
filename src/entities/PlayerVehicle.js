@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
 import { GAME_CONFIG } from '../config/gameConfig.js';
+import { VehicleModelFactory } from './VehicleModelFactory.js';
 
 export class PlayerVehicle extends Entity {
   constructor() {
@@ -23,38 +24,25 @@ export class PlayerVehicle extends Entity {
     this.nitroTimer = 0;
     this.nitroSpeedMultiplier = 1;
     this.nitroAccelerationMultiplier = 1;
+    this._visualGroup = null;
     this._buildVisual();
   }
 
-  _buildVisual() {
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xb51624, roughness: 0.55, metalness: 0.2 });
-    this.bodyMaterial = bodyMaterial;
-    const glassMaterial = new THREE.MeshStandardMaterial({ color: 0x17212a, roughness: 0.25, metalness: 0.25 });
-    const tireMaterial = new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.95 });
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.62, 4.2), bodyMaterial);
-    body.position.y = 0.62;
-    body.castShadow = true;
-    this.object3D.add(body);
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.62, 1.8), glassMaterial);
-    cabin.position.set(0, 1.2, 0.15);
-    cabin.castShadow = true;
-    this.object3D.add(cabin);
-
-    const wheelGeometry = new THREE.CylinderGeometry(0.36, 0.36, 0.28, 18);
-    wheelGeometry.rotateZ(Math.PI / 2);
-    const wheelPositions = [
-      [-0.98, 0.38, -1.35], [0.98, 0.38, -1.35],
-      [-0.98, 0.38, 1.35], [0.98, 0.38, 1.35],
-    ];
-
-    for (const [x, y, z] of wheelPositions) {
-      const wheel = new THREE.Mesh(wheelGeometry, tireMaterial);
-      wheel.position.set(x, y, z);
-      wheel.castShadow = true;
-      this.object3D.add(wheel);
+  _buildVisual(vehicleId = this.vehicleId, color = 0xb51624) {
+    // Remove visual anterior
+    if (this._visualGroup) {
+      this.object3D.remove(this._visualGroup);
+      this._visualGroup.traverse((child) => {
+        if (child.geometry) child.geometry.dispose();
+      });
     }
+
+    // Constrói o novo modelo detalhado
+    this._visualGroup = VehicleModelFactory.buildPlayerCar(vehicleId, color);
+    this.object3D.add(this._visualGroup);
+
+    // Busca o material do corpo para permitir trocar a cor
+    this.bodyMaterial = this._visualGroup.__bodyMat ?? null;
   }
 
   reset() {
@@ -246,7 +234,9 @@ export class PlayerVehicle extends Entity {
 
   applyVehicleProfile(vehicle = {}) {
     const profile = vehicle.profile ?? vehicle;
-    this.vehicleId = vehicle.id ?? this.vehicleId;
+    const newId = vehicle.id ?? this.vehicleId;
+    const needsRebuild = newId !== this.vehicleId;
+    this.vehicleId = newId;
     this.vehicleProfile = {
       speedFactor: Math.max(0.7, profile.speedFactor ?? 1),
       accelerationFactor: Math.max(0.7, profile.accelerationFactor ?? 1),
@@ -256,7 +246,12 @@ export class PlayerVehicle extends Entity {
       scaleX: Math.max(0.8, profile.scaleX ?? 1),
       scaleZ: Math.max(0.8, profile.scaleZ ?? 1),
     };
-    if (vehicle.color != null && this.bodyMaterial?.color?.setHex) this.bodyMaterial.color.setHex(vehicle.color);
+    // Reconstrói o modelo 3D quando o tipo de veículo muda
+    if (needsRebuild || !this._visualGroup) {
+      this._buildVisual(this.vehicleId, vehicle.color ?? 0xb51624);
+    } else if (vehicle.color != null && this.bodyMaterial?.color?.setHex) {
+      this.bodyMaterial.color.setHex(vehicle.color);
+    }
     this.object3D.scale.set(this.vehicleProfile.scaleX, 1, this.vehicleProfile.scaleZ);
   }
 

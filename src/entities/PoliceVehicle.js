@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
 import { GAME_CONFIG } from '../config/gameConfig.js';
+import { VehicleModelFactory } from './VehicleModelFactory.js';
 
 export class PoliceVehicle extends Entity {
   constructor(variant = 'STANDARD') {
@@ -21,51 +22,8 @@ export class PoliceVehicle extends Entity {
   }
 
   _buildVisual() {
-    const palette = {
-      STANDARD: { body: 0xf1f1f1, stripe: 0x11171c },
-      INTERCEPTOR: { body: 0x263746, stripe: 0xe8ecef },
-      SPECIAL: { body: 0x15191d, stripe: 0x5d6870 },
-    }[this.variant] ?? { body: 0xf1f1f1, stripe: 0x11171c };
-
-    const white = new THREE.MeshStandardMaterial({ color: palette.body, roughness: 0.5, metalness: 0.15 });
-    const dark = new THREE.MeshStandardMaterial({ color: palette.stripe, roughness: 0.38, metalness: 0.18 });
-    const tire = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.96 });
-    const red = new THREE.MeshStandardMaterial({ color: 0xd81e2b, emissive: 0x5d070d, emissiveIntensity: 1.3 });
-    const blue = new THREE.MeshStandardMaterial({ color: 0x1d57dc, emissive: 0x071b5d, emissiveIntensity: 1.3 });
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.66, 4.45), white);
-    body.position.y = 0.64;
-    body.castShadow = true;
-    this.object3D.add(body);
-
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.24, 2.9), dark);
-    stripe.position.set(0, 0.77, 0.25);
-    stripe.castShadow = true;
-    this.object3D.add(stripe);
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.65, 1.85), dark);
-    cabin.position.set(0, 1.22, 0.1);
-    cabin.castShadow = true;
-    this.object3D.add(cabin);
-
-    const lightbarBase = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.12, 0.32), dark);
-    lightbarBase.position.set(0, 1.63, 0.05);
-    this.object3D.add(lightbarBase);
-    const leftLight = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.18, 0.28), red);
-    leftLight.position.set(-0.31, 1.73, 0.05);
-    this.object3D.add(leftLight);
-    const rightLight = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.18, 0.28), blue);
-    rightLight.position.set(0.31, 1.73, 0.05);
-    this.object3D.add(rightLight);
-
-    const wheelGeometry = new THREE.CylinderGeometry(0.37, 0.37, 0.29, 18);
-    wheelGeometry.rotateZ(Math.PI / 2);
-    for (const [x, y, z] of [[-1.02, 0.38, -1.4], [1.02, 0.38, -1.4], [-1.02, 0.38, 1.4], [1.02, 0.38, 1.4]]) {
-      const wheel = new THREE.Mesh(wheelGeometry, tire);
-      wheel.position.set(x, y, z);
-      wheel.castShadow = true;
-      this.object3D.add(wheel);
-    }
+    const visualGroup = VehicleModelFactory.buildPoliceCar(this.variant);
+    this.object3D.add(visualGroup);
   }
 
   reset(spawnOverride = null) {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Entity } from './Entity.js';
 import { GAME_CONFIG } from '../config/gameConfig.js';
+import { VehicleModelFactory } from './VehicleModelFactory.js';
 
 const TYPE_CONFIG = Object.freeze({
   CAR:        { length: 3.9, width: 1.75, height: 0.6, cabin: 1.55, speed: 13.2, radius: 1.35, color: 0x58718a },
@@ -33,71 +34,8 @@ export class TrafficVehicle extends Entity {
   }
 
   _buildVisual() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: this.spec.color, roughness: 0.58, metalness: 0.12 });
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x1d2a32, roughness: 0.28, metalness: 0.2 });
-    const tireMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.96 });
-
-    if (this.type === 'MOTORCYCLE') {
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 1.35), bodyMat);
-      body.position.y = 0.62;
-      body.castShadow = true;
-      this.object3D.add(body);
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.72), glassMat);
-      seat.position.set(0, 0.92, 0.2);
-      this.object3D.add(seat);
-      const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.16, 16);
-      wheelGeo.rotateZ(Math.PI / 2);
-      for (const z of [-0.82, 0.82]) {
-        const wheel = new THREE.Mesh(wheelGeo, tireMat);
-        wheel.position.set(0, 0.35, z);
-        wheel.castShadow = true;
-        this.object3D.add(wheel);
-      }
-      return;
-    }
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(this.spec.width, this.spec.height, this.spec.length), bodyMat);
-    body.position.y = this.spec.height * 0.72;
-    body.castShadow = true;
-    this.object3D.add(body);
-
-    if (this.type === 'BUS') {
-      const upper = new THREE.Mesh(new THREE.BoxGeometry(this.spec.width * 0.92, 1.4, this.spec.length * 0.84), glassMat);
-      upper.position.set(0, 1.85, 0);
-      upper.castShadow = true;
-      this.object3D.add(upper);
-    } else if (this.type === 'TRUCK') {
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(this.spec.width * 0.92, 1.35, 1.9), glassMat);
-      cabin.position.set(0, 1.55, -1.85);
-      cabin.castShadow = true;
-      this.object3D.add(cabin);
-      const cargo = new THREE.Mesh(new THREE.BoxGeometry(this.spec.width * 0.96, 1.85, 3.6), bodyMat);
-      cargo.position.set(0, 1.55, 1.1);
-      cargo.castShadow = true;
-      this.object3D.add(cargo);
-    } else {
-      const cabin = new THREE.Mesh(new THREE.BoxGeometry(this.spec.width * 0.82, 0.62, this.spec.cabin), glassMat);
-      cabin.position.set(0, 1.15, 0.08);
-      cabin.castShadow = true;
-      this.object3D.add(cabin);
-    }
-
-    const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.24, 16);
-    wheelGeo.rotateZ(Math.PI / 2);
-    const halfW = this.spec.width * 0.52;
-    const axle = this.spec.length * 0.32;
-    for (const [x, z] of [[-halfW, -axle], [halfW, -axle], [-halfW, axle], [halfW, axle]]) {
-      const wheel = new THREE.Mesh(wheelGeo, tireMat);
-      wheel.position.set(x, 0.35, z);
-      wheel.castShadow = true;
-      this.object3D.add(wheel);
-    }
-
-    if (this.type === 'TAXI') {
-      const sign = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.18, 0.3), new THREE.MeshStandardMaterial({ color: 0xf4e6aa }));
-      sign.position.set(0, 1.55, 0);
-      this.object3D.add(sign);
-    }
+    const visualGroup = VehicleModelFactory.buildTrafficVehicle(this.type, this.spec.color);
+    this.object3D.add(visualGroup);
   }
 
   reset(spawn, route) {
