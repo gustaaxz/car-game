@@ -116,6 +116,8 @@ export class Game {
     sun.shadow.camera.bottom = -145;
     sun.shadow.camera.near = 1;
     sun.shadow.camera.far = 360;
+    sun.shadow.bias = -0.0003;
+    sun.shadow.normalBias = 0.02;
     this.sunTarget = new THREE.Object3D();
     this.scene.add(this.sunTarget);
     sun.target = this.sunTarget;
