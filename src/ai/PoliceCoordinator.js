@@ -17,10 +17,16 @@ export class PoliceCoordinator {
     this._playerForward = new THREE.Vector3(0, 0, -1);
     this._playerRight = new THREE.Vector3(1, 0, 0);
     this._scratch = new THREE.Vector3();
+    this._intelPosition = new THREE.Vector3();
+    this._intelVelocity = new THREE.Vector3();
+    this._intelAge = Infinity;
   }
 
   reset() {
     this.updateTimer = 0;
+    this._intelPosition.copy(this.player.object3D.position);
+    this._intelVelocity.set(0, 0, 0);
+    this._intelAge = Infinity;
     this.roadblocks.setStrategicNodes([]);
   }
 
@@ -36,8 +42,11 @@ export class PoliceCoordinator {
     }
   }
 
-  update(deltaTime, units, profile) {
+  update(deltaTime, units, profile, intel = null) {
     if (deltaTime <= 0 || units.length === 0) return;
+    if (intel?.position) this._intelPosition.copy(intel.position);
+    if (intel?.velocity) this._intelVelocity.copy(intel.velocity);
+    this._intelAge = Number.isFinite(intel?.age) ? intel.age : this._intelAge + deltaTime;
     this.updateTimer -= deltaTime;
     if (this.updateTimer > 0) return;
     this.updateTimer = this.updateInterval;
@@ -51,7 +60,7 @@ export class PoliceCoordinator {
     let blockerIndex = 0;
     for (const unit of units) {
       if (unit.role === PoliceRole.PURSUER) {
-        unit.ai.setTacticalTarget(this.player.object3D.position);
+        unit.ai.setTacticalTarget(this._intelAge < 12 ? this._intelPosition : null);
       } else if (unit.role === PoliceRole.INTERCEPTOR) {
         unit.ai.setTacticalTarget(this._getInterceptTarget(unit));
       } else if (unit.role === PoliceRole.FLANKER) {
@@ -65,25 +74,25 @@ export class PoliceCoordinator {
   }
 
   _refreshPlayerAxes() {
-    const speed = this.player.velocity.length();
-    if (speed > 1.2) this._playerForward.copy(this.player.velocity).normalize();
-    else this._playerForward.set(-Math.sin(this.player.heading), 0, -Math.cos(this.player.heading));
+    const speed = this._intelVelocity.length();
+    if (speed > 1.2) this._playerForward.copy(this._intelVelocity).normalize();
+    else if (this._playerForward.lengthSq() < 0.5) this._playerForward.set(0, 0, -1);
     this._playerRight.set(-this._playerForward.z, 0, this._playerForward.x);
   }
 
   _getInterceptTarget(unit) {
-    const playerPos = this.player.object3D.position;
-    const playerSpeed = this.player.velocity.length();
+    const playerPos = this._intelPosition;
+    const playerSpeed = this._intelVelocity.length();
     const distance = unit.vehicle.object3D.position.distanceTo(playerPos);
     const leadSeconds = THREE.MathUtils.clamp(1.1 + distance / 75, 1.15, 2.8);
     const leadScale = THREE.MathUtils.clamp(playerSpeed / 12, 0.65, 1.25);
-    this._scratch.copy(playerPos).addScaledVector(this.player.velocity, leadSeconds * leadScale);
+    this._scratch.copy(playerPos).addScaledVector(this._intelVelocity, leadSeconds * leadScale);
     return this._clampToCity(this._scratch.clone());
   }
 
   _getFlankTarget(side) {
-    const playerPos = this.player.object3D.position;
-    const speed = this.player.velocity.length();
+    const playerPos = this._intelPosition;
+    const speed = this._intelVelocity.length();
     const ahead = THREE.MathUtils.clamp(18 + speed * 1.25, 22, 52);
     const lateral = 42 * side;
     const desired = playerPos.clone()
@@ -96,7 +105,7 @@ export class PoliceCoordinator {
 
   _chooseBlockerNodes(count) {
     if (count <= 0) return [];
-    const playerPos = this.player.object3D.position;
+    const playerPos = this._intelPosition;
     const candidates = [...this.city.roadNetwork.nodes.values()]
       .map((node) => {
         const dx = node.x - playerPos.x;

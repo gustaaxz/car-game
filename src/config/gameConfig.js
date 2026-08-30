@@ -1,8 +1,8 @@
 export const GAME_CONFIG = Object.freeze({
   city: {
-    halfSize: 330,
-    roadWidth: 20,
-    roadCenters: [-280, -210, -140, -70, 0, 70, 140, 210, 280],
+    halfSize: 440,
+    roadWidth: 22,
+    roadCenters: [-400, -320, -240, -160, -80, 0, 80, 160, 240, 320, 400],
     boundaryPadding: 4,
   },
   player: {
@@ -27,7 +27,7 @@ export const GAME_CONFIG = Object.freeze({
     collisionRadius: 1.45,
     width: 1.85,
     length: 4.2,
-    spawn: { x: 0, z: 210, heading: 0 },
+    spawn: { x: 0, z: 240, heading: 0 },
   },
   police: {
     maxSpeed: 29,
@@ -43,9 +43,9 @@ export const GAME_CONFIG = Object.freeze({
     stopSpeed: 0.14,
     collisionRadius: 1.5,
     waypointRadius: 6.5,
-    detectionRange: 145,
-    loseSightRange: 185,
-    searchDuration: 7,
+    detectionRange: 160,
+    loseSightRange: 215,
+    searchDuration: 10,
     interceptLeadSeconds: 1.35,
     repathInterval: 0.55,
     spawn: { x: 0, z: 0, heading: Math.PI },
@@ -62,7 +62,7 @@ export const GAME_CONFIG = Object.freeze({
     ],
     dispatchInterval: 2.5,
     spawnMinDistance: 78,
-    spawnMaxDistance: 270,
+    spawnMaxDistance: 380,
   },
   combo: {
     maxMultiplier: 5.0,
@@ -120,7 +120,7 @@ export const GAME_CONFIG = Object.freeze({
     },
   },
   traffic: {
-    vehicleCount: 42,
+    vehicleCount: 56,
     laneOffset: 3.2,
     waypointRadius: 5.2,
     acceleration: 8.2,
@@ -129,6 +129,8 @@ export const GAME_CONFIG = Object.freeze({
     grip: 10.5,
     rollingResistance: 0.22,
     followDistance: 15,
+    signalCycleSeconds: 18,
+    intersectionBrakeDistance: 20,
   },
   events: {
     initialDelay: 16,

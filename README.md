@@ -1,8 +1,21 @@
-# Polícia VS Ladrão — Versão Final com Refino de Realismo
+# Polícia VS Ladrão — Operação Cidade Aberta
 
 Jogo/protótipo 3D de perseguição em **HTML + JavaScript + Three.js**, com backend REST em **Node.js**.
 
-A base continua cobrindo as **Fases 1–18, 20–22, 24 e 25**. As fases **19 (Áudio)** e **23 (Antitrapaça)** continuam puladas, conforme definido no projeto.
+A base cobre as **Fases 1–18, 20–22 e 24–26**. A Fase 26 adiciona cidade expandida, IA tática, trânsito consciente, minimapa integral, emplacamento e sessões JWT. A Fase **19 (Áudio)** continua planejada.
+
+## Fase 26 — Operação Cidade Aberta
+
+- Cidade de **880 × 880 unidades**, com **11 × 11 cruzamentos** e até **100 quarteirões**.
+- Minimapa completo delimitado pelos limites reais da cidade; `M` alterna para radar local.
+- Polícia compartilha a última posição e velocidade confirmadas em vez de receber a posição exata de forma onisciente.
+- Unidades varrem até seis nós próximos quando perdem contato visual.
+- Interceptadores, flanqueadores e bloqueadores usam a inteligência compartilhada e sua idade.
+- NPCs têm perfis de cautela/velocidade, respeitam fases semafóricas e cedem passagem a emergências.
+- Luzes de freio reagem à frenagem dos veículos civis.
+- Placas no padrão visual Mercosul são geradas proceduralmente para carros civis, jogador e viaturas.
+- Backend emite JWT HS256 com validade de sete dias e exige a sessão para ler ou alterar o perfil e registrar partidas.
+- Rate limiting, CSP, validação de partidas, limite de payload e proteção de caminhos foram adicionados ao servidor.
 
 ## Refino pós-Fase 25 — Realismo
 
@@ -10,9 +23,9 @@ Esta versão adiciona um passe extra de realismo sem mudar a física validada do
 
 ### Mapa expandido
 
-- Área urbana ampliada de aproximadamente **330 × 330** para **660 × 660 unidades**.
-- Rede viária ampliada de **5 × 5** para **9 × 9 cruzamentos**.
-- Até **64 quarteirões** entre as vias da nova malha.
+- Área urbana ampliada para **880 × 880 unidades**.
+- Rede viária ampliada para **11 × 11 cruzamentos**.
+- Até **100 quarteirões** entre as vias da nova malha.
 - Ruas continuam largas para suportar perseguições com várias viaturas.
 - Novos quarteirões são distribuídos em regiões residenciais, centro, escritórios, indústria, armazéns, estacionamentos, parques, praças e postos.
 - Calçadas e meios-fios mais definidos.
@@ -76,7 +89,7 @@ Foi criado `VehicleRealismSystem.js`, responsável exclusivamente pela apresenta
 
 ### Trânsito mais natural
 
-O tráfego passou de **25 para 42 veículos**, aproveitando o mapa maior.
+O tráfego passou de **25 para 56 veículos**, aproveitando o mapa maior.
 
 A distribuição deixou de ser uniforme. Carros comuns são maioria, enquanto táxis, motos, caminhões e ônibus aparecem em proporções menores, deixando as ruas menos artificiais.
 
@@ -153,9 +166,18 @@ npm test
 - `Espaço` — freio de mão
 - `Esc` — pausar
 
-## Fases puladas
+## Configuração de segurança
 
-- **Fase 19 — Áudio**
-- **Fase 23 — Sistema Antitrapaça**
+Em produção, defina um segredo estável e forte antes de iniciar o servidor:
 
-O ranking permanece funcional, mas os resultados enviados pelo cliente não possuem validação antitrapaça avançada.
+```bash
+JWT_SECRET="um-segredo-aleatorio-com-pelo-menos-32-bytes" npm start
+```
+
+Sem essa variável, o servidor cria um segredo efêmero adequado ao desenvolvimento local; as sessões expiram quando o processo reinicia.
+
+O JWT autentica a sessão do jogador. A validação de plausibilidade bloqueia submissões obviamente impossíveis, mas um sistema antitrapaça competitivo completo ainda exigiria simulação autoritativa no servidor.
+
+## Fase planejada
+
+- **Fase 19 — Áudio espacial e adaptativo**

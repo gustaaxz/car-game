@@ -14,10 +14,12 @@ export class TrafficManager {
     this.heavyTrafficZones = [];
     this.spatialGrid = new SpatialHashGrid(24);
     this.reusedLastReset = 0;
+    this.simulationTime = 0;
   }
 
   reset() {
     this.heavyTrafficZones = [];
+    this.simulationTime = 0;
     const types = ['CAR','CAR','TAXI','CAR','MOTORCYCLE','CAR','CAR','TRUCK','CAR','TAXI','CAR','MOTORCYCLE','CAR','CAR','BUS','CAR','TAXI','CAR','MOTORCYCLE','TRUCK'];
     const count = GAME_CONFIG.traffic.vehicleCount;
     this.reusedLastReset = 0;
@@ -50,6 +52,7 @@ export class TrafficManager {
 
   update(deltaTime, policeManager = null) {
     if (deltaTime <= 0) return;
+    this.simulationTime += deltaTime;
     this.spatialGrid.rebuild(this.vehicles);
     const playerPos = this.player.object3D.position;
 
@@ -100,6 +103,48 @@ export class TrafficManager {
       if (ahead < 0.68) continue;
       if (distance < 4.5) return 0.08;
       factor = Math.min(factor, THREE.MathUtils.clamp((distance - 4) / 8, 0.25, 1));
+    }
+    return factor;
+  }
+
+  getIntersectionSpeedFactor(vehicle, target) {
+    if (!target) return 1;
+    const centers = GAME_CONFIG.city.roadCenters;
+    const nearestX = centers.reduce((best, value) => Math.abs(value - target.x) < Math.abs(best - target.x) ? value : best, centers[0]);
+    const nearestZ = centers.reduce((best, value) => Math.abs(value - target.z) < Math.abs(best - target.z) ? value : best, centers[0]);
+    if (Math.abs(target.x - nearestX) > GAME_CONFIG.traffic.laneOffset + 1 || Math.abs(target.z - nearestZ) > GAME_CONFIG.traffic.laneOffset + 1) return 1;
+
+    const distance = Math.hypot(target.x - vehicle.object3D.position.x, target.z - vehicle.object3D.position.z);
+    const brakeDistance = GAME_CONFIG.traffic.intersectionBrakeDistance;
+    if (distance > brakeDistance || distance < 4.2) return 1;
+
+    const ix = centers.indexOf(nearestX);
+    const iz = centers.indexOf(nearestZ);
+    const cycle = GAME_CONFIG.traffic.signalCycleSeconds;
+    const phase = (this.simulationTime + ((ix * 3 + iz * 5) % 7) * 0.9) % cycle;
+    const horizontal = Math.abs(vehicle.forward.x) > Math.abs(vehicle.forward.z);
+    const horizontalGreen = phase < cycle * 0.5;
+    const greenForVehicle = horizontal === horizontalGreen;
+    const halfPhase = phase % (cycle * 0.5);
+    const amber = halfPhase > cycle * 0.5 - 1.8;
+    if (greenForVehicle && (!amber || distance < 9)) return 1;
+
+    const caution = vehicle.driverProfile?.caution ?? 1;
+    return THREE.MathUtils.clamp(((distance - 4.2) / (brakeDistance - 4.2)) * (1.12 - caution * 0.12), 0.04, 0.72);
+  }
+
+  getEmergencyYieldFactor(vehicle, policeManager = null) {
+    let factor = 1;
+    const position = vehicle.object3D.position;
+    if (this.player.velocity.length() > 18) {
+      const distance = position.distanceTo(this.player.object3D.position);
+      if (distance < 9) factor = 0.18;
+      else if (distance < 18) factor = 0.55;
+    }
+    for (const unit of policeManager?.units ?? []) {
+      const distance = position.distanceTo(unit.vehicle.object3D.position);
+      if (distance < 7) return 0.12;
+      if (distance < 15) factor = Math.min(factor, 0.42);
     }
     return factor;
   }

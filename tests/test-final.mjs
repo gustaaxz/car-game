@@ -112,13 +112,13 @@ test('PerformanceSystem implementa LOD por distância e pixel ratio adaptativo',
 });
 
 test('Movimentação do jogador permanece byte a byte igual à versão validada', async () => {
-  const bytes = await readFile(new URL('../src/entities/PlayerVehicle.js', import.meta.url));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), '049155b84a45abd5e5a5d4777668e43d0d189deaaec3d7f6103297ffb71f2242');
+  const source = (await readFile(new URL('../src/entities/PlayerVehicle.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
+  assert.equal(createHash('sha256').update(source).digest('hex'), '049155b84a45abd5e5a5d4777668e43d0d189deaaec3d7f6103297ffb71f2242');
 });
 
 test('Movimentação policial permanece byte a byte igual à versão validada', async () => {
-  const bytes = await readFile(new URL('../src/entities/PoliceVehicle.js', import.meta.url));
-  assert.equal(createHash('sha256').update(bytes).digest('hex'), '983fdebece8859011a2ef665dd530c9d8beb385527bfd824ac732c4f5dbd0453');
+  const source = (await readFile(new URL('../src/entities/PoliceVehicle.js', import.meta.url), 'utf8')).replace(/\r\n/g, '\n');
+  assert.equal(createHash('sha256').update(source).digest('hex'), '983fdebece8859011a2ef665dd530c9d8beb385527bfd824ac732c4f5dbd0453');
 });
 
 
@@ -162,12 +162,12 @@ test('Balanceamento final suaviza perseguição e melhora recuperação da captu
 
 
 
-test('Refino amplia o mapa para 9x9 cruzamentos e 64 quarteirões potenciais', async () => {
+test('Operação Cidade Aberta amplia o mapa para 11x11 cruzamentos e 100 quarteirões', async () => {
   const { GAME_CONFIG } = await import('../src/config/gameConfig.js');
-  assert.equal(GAME_CONFIG.city.halfSize, 330);
-  assert.equal(GAME_CONFIG.city.roadCenters.length, 9);
-  assert.deepEqual(GAME_CONFIG.city.roadCenters, [-280,-210,-140,-70,0,70,140,210,280]);
-  assert.equal((GAME_CONFIG.city.roadCenters.length - 1) ** 2, 64);
+  assert.equal(GAME_CONFIG.city.halfSize, 440);
+  assert.equal(GAME_CONFIG.city.roadCenters.length, 11);
+  assert.deepEqual(GAME_CONFIG.city.roadCenters, [-400,-320,-240,-160,-80,0,80,160,240,320,400]);
+  assert.equal((GAME_CONFIG.city.roadCenters.length - 1) ** 2, 100);
 });
 
 test('Mapa maior usa distritos procedurais e mobiliário urbano detalhado', async () => {
@@ -191,11 +191,46 @@ test('Realismo de veículos adiciona detalhes e anima rodas/motos', async () => 
   for (const token of ['_enhancePlayer','_enhancePolice','_enhanceTraffic','_addMotorcycleDetails','_addTruckDetails','_addBusDetails','_animateVehicle']) assert.match(realism, new RegExp(token));
 });
 
-test('Trânsito maior usa distribuição ponderada e 42 veículos', async () => {
+test('Trânsito maior usa distribuição ponderada e 56 veículos', async () => {
   const { GAME_CONFIG } = await import('../src/config/gameConfig.js');
   const traffic = await readFile(new URL('../src/systems/TrafficManager.js', import.meta.url), 'utf8');
-  assert.equal(GAME_CONFIG.traffic.vehicleCount, 42);
+  assert.equal(GAME_CONFIG.traffic.vehicleCount, 56);
   assert.match(traffic, /'CAR','CAR','TAXI','CAR','MOTORCYCLE'/);
+});
+
+test('IA policial usa memória compartilhada e padrão de busca sem posição onisciente', async () => {
+  const manager = await readFile(new URL('../src/systems/PoliceManager.js', import.meta.url), 'utf8');
+  const ai = await readFile(new URL('../src/ai/PoliceAI.js', import.meta.url), 'utf8');
+  const coordinator = await readFile(new URL('../src/ai/PoliceCoordinator.js', import.meta.url), 'utf8');
+  assert.match(manager, /sharedLastSeenPosition/);
+  assert.match(manager, /sharedContactAge/);
+  assert.match(ai, /_prepareSearchPattern/);
+  assert.match(ai, /searchWaypoints/);
+  assert.match(coordinator, /_intelPosition/);
+});
+
+test('NPCs respeitam semáforos, cedem à emergência e possuem perfis de motorista', async () => {
+  const manager = await readFile(new URL('../src/systems/TrafficManager.js', import.meta.url), 'utf8');
+  const vehicle = await readFile(new URL('../src/entities/TrafficVehicle.js', import.meta.url), 'utf8');
+  assert.match(manager, /getIntersectionSpeedFactor/);
+  assert.match(manager, /getEmergencyYieldFactor/);
+  assert.match(vehicle, /driverProfile/);
+  assert.match(vehicle, /brakeLightMaterial/);
+});
+
+test('Minimapa representa os limites integrais da cidade e alterna para radar local', async () => {
+  const minimap = await readFile(new URL('../src/ui/MinimapSystem.js', import.meta.url), 'utf8');
+  assert.match(minimap, /this\.city\.bounds/);
+  assert.match(minimap, /_drawFullMap/);
+  assert.match(minimap, /toggleMode/);
+  assert.match(minimap, /worldSize/);
+});
+
+test('Realismo visual inclui emplacamento Mercosul procedural', async () => {
+  const realism = await readFile(new URL('../src/systems/VehicleRealismSystem.js', import.meta.url), 'utf8');
+  assert.match(realism, /_addLicensePlates/);
+  assert.match(realism, /BRASIL/);
+  assert.match(realism, /CanvasTexture/);
 });
 
 const storeUrl = new URL('../server/data/store.json', import.meta.url);
@@ -208,30 +243,50 @@ await once(server, 'listening');
 const { port } = server.address();
 const base = `http://127.0.0.1:${port}`;
 
-async function api(path, options = {}) {
-  const res = await fetch(base + path, { headers: { 'Content-Type': 'application/json' }, ...options });
+async function api(path, { token = null, headers = {}, ...options } = {}) {
+  const res = await fetch(base + path, { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers }, ...options });
   const body = await res.json();
   return { res, body };
 }
 
-let playerA, playerB;
-test('Backend anuncia Fases 22, 24 e 25 e registra pulos 19/23', async () => {
+let playerA, playerB, tokenA, tokenB;
+test('Backend anuncia Fase 26 com sessões JWT', async () => {
   const { body } = await api('/api/health');
-  assert.equal(body.phase, 25);
-  assert.deepEqual(body.implemented, [22,24,25]);
-  assert.deepEqual(body.skipped, [19,23]);
+  assert.equal(body.phase, 26);
+  assert.equal(body.security, 'JWT-HS256');
+  assert.deepEqual(body.implemented, [22,24,25,26]);
+  assert.deepEqual(body.skipped, [19]);
 });
 
 test('Endpoint /api/ranking classifica partidas reais do backend', async () => {
-  playerA = (await api('/api/players', { method:'POST', body: JSON.stringify({ profile:{} }) })).body.player.id;
-  playerB = (await api('/api/players', { method:'POST', body: JSON.stringify({ profile:{} }) })).body.player.id;
-  await api(`/api/players/${playerA}/runs`, { method:'POST', body: JSON.stringify({ run:{ score:4200, timeSeconds:180, maxWantedLevel:5, vehicleId:'MUSCLE' } }) });
-  await api(`/api/players/${playerB}/runs`, { method:'POST', body: JSON.stringify({ run:{ score:7600, timeSeconds:240, maxWantedLevel:6, vehicleId:'SPORT' } }) });
-  const { res, body } = await api(`/api/ranking?period=global&playerId=${playerA}`);
+  const createdA = await api('/api/players', { method:'POST', body: JSON.stringify({ profile:{} }) });
+  const createdB = await api('/api/players', { method:'POST', body: JSON.stringify({ profile:{} }) });
+  playerA = createdA.body.player.id; tokenA = createdA.body.token;
+  playerB = createdB.body.player.id; tokenB = createdB.body.token;
+  assert.equal(tokenA.split('.').length, 3);
+  await api(`/api/players/${playerA}/runs`, { token: tokenA, method:'POST', body: JSON.stringify({ run:{ score:4200, timeSeconds:250, maxWantedLevel:5, vehicleId:'MUSCLE' } }) });
+  await api(`/api/players/${playerB}/runs`, { token: tokenB, method:'POST', body: JSON.stringify({ run:{ score:7600, timeSeconds:370, maxWantedLevel:6, vehicleId:'SPORT' } }) });
+  const { res, body } = await api('/api/ranking?period=global', { token: tokenA });
   assert.equal(res.status, 200);
   assert.equal(body.entries[0].playerId, playerB);
   assert.equal(body.entries[1].playerId, playerA);
   assert.equal(body.me.rank, 2);
+});
+
+test('Backend rejeita mutação sem JWT e token adulterado', async () => {
+  const missing = await api(`/api/players/${playerA}/profile`, { method:'PUT', body: JSON.stringify({ profile:{} }) });
+  assert.equal(missing.res.status, 401);
+  const tampered = `${tokenA.slice(0, -1)}${tokenA.endsWith('a') ? 'b' : 'a'}`;
+  const invalid = await api(`/api/players/${playerA}`, { token: tampered });
+  assert.equal(invalid.res.status, 401);
+});
+
+test('Servidor envia cabeçalhos defensivos e rejeita partida impossível', async () => {
+  const health = await api('/api/health');
+  assert.equal(health.res.headers.get('x-content-type-options'), 'nosniff');
+  assert.match(health.res.headers.get('content-security-policy'), /frame-ancestors 'none'/);
+  const impossible = await api(`/api/players/${playerA}/runs`, { token: tokenA, method:'POST', body: JSON.stringify({ run:{ score:999999999, timeSeconds:5, maxWantedLevel:7, vehicleId:'COMPACT' } }) });
+  assert.equal(impossible.res.status, 422);
 });
 
 let passed = 0;

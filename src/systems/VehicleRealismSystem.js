@@ -56,7 +56,9 @@ export class VehicleRealismSystem {
 
   _enhancePlayer() {
     const root = this.player?.object3D;
-    if (!root || root.userData.realismEnhanced) return;
+    if (!root) return;
+    this._addLicensePlates(root, 4.2, this._plateFor('player'));
+    if (root.userData.realismEnhanced) return;
     root.userData.realismEnhanced = true;
     const body = this.player.bodyMaterial ?? new THREE.MeshStandardMaterial({ color: 0xb51624, roughness: 0.48, metalness: 0.24 });
     this._addCarDetails(root, body, { length: 4.2, width: 1.85, police: false, sport: true });
@@ -65,7 +67,9 @@ export class VehicleRealismSystem {
 
   _enhancePolice(vehicle) {
     const root = vehicle?.object3D;
-    if (!root || root.userData.realismEnhanced) return;
+    if (!root) return;
+    this._addLicensePlates(root, 4.45, this._plateFor(`police-${vehicle.variant}-${root.uuid}`));
+    if (root.userData.realismEnhanced) return;
     root.userData.realismEnhanced = true;
     const palette = {
       STANDARD: 0xeeeeea,
@@ -90,7 +94,9 @@ export class VehicleRealismSystem {
 
   _enhanceTraffic(vehicle) {
     const root = vehicle?.object3D;
-    if (!root || root.userData.realismEnhanced) return;
+    if (!root) return;
+    if (vehicle.type !== 'MOTORCYCLE') this._addLicensePlates(root, vehicle.spec?.length ?? 4.1, this._plateFor(vehicle.collisionId));
+    if (root.userData.realismEnhanced) return;
     root.userData.realismEnhanced = true;
     const body = new THREE.MeshStandardMaterial({ color: vehicle.spec?.color ?? 0x68737b, roughness: 0.5, metalness: 0.16 });
 
@@ -227,6 +233,53 @@ export class VehicleRealismSystem {
       rim.userData.isWheelDetail = true;
       root.add(rim);
     }
+  }
+
+  _addLicensePlates(root, length, plateText) {
+    if (root.userData.licensePlateEnhanced || typeof document === 'undefined') return;
+    root.userData.licensePlateEnhanced = true;
+    root.userData.licensePlate = plateText;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 72;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f4f5f0';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#174b87';
+    ctx.fillRect(0, 0, canvas.width, 15);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 9px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('BRASIL', canvas.width / 2, 11);
+    ctx.fillStyle = '#111820';
+    ctx.font = '900 38px monospace';
+    ctx.fillText(plateText, canvas.width / 2, 57);
+    ctx.strokeStyle = '#8d969d';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1.5, 1.5, canvas.width - 3, canvas.height - 3);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    const geometry = new THREE.PlaneGeometry(0.72, 0.205);
+    for (const side of [-1, 1]) {
+      const plate = new THREE.Mesh(geometry, material);
+      plate.position.set(0, 0.56, side * (length * 0.5 + 0.15));
+      if (side < 0) plate.rotation.y = Math.PI;
+      plate.userData.isLicensePlate = true;
+      root.add(plate);
+    }
+  }
+
+  _plateFor(value) {
+    const source = String(value ?? 'PVL');
+    let hash = 2166136261;
+    for (let i = 0; i < source.length; i++) hash = Math.imul(hash ^ source.charCodeAt(i), 16777619) >>> 0;
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const letter = (shift) => letters[(hash >>> shift) % letters.length];
+    const digit = (shift) => String((hash >>> shift) % 10);
+    return `${letter(0)}${letter(5)}${letter(10)}${digit(15)}${letter(18)}${digit(22)}${digit(26)}`;
   }
 
   _markWheels(root) {
