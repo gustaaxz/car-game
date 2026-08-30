@@ -36,7 +36,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setSize(innerWidth, innerHeight);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.08;
@@ -338,6 +338,10 @@ export class Game {
     });
 
     window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyM' && (this.states.is(GameState.PLAYING) || this.states.is(GameState.PAUSED))) {
+        e.preventDefault();
+        this.minimap.toggleMode();
+      }
       if (this.states.is(GameState.MENU) && !this.garageOpen && !this.rankingOpen) {
         if (e.code === 'Enter' || e.code === 'Space') {
           e.preventDefault();
@@ -422,7 +426,7 @@ export class Game {
     const lastBonus = this.score.lastBonus;
 
     this.ui.debug.textContent = [
-      `FASES: 1–18 + 20–22 + 24–25 (19 e 23 PULADAS)`,
+      `BUILD: OPERAÇÃO CIDADE ABERTA · JWT + IA TÁTICA`,
       `STATE: ${this.states.state}`,
       `LADRÃO: ${this.player.getSpeedKmh().toFixed(0)} km/h · ${this.garage.getSelectedVehicle().name}`,
       `PROGRESSÃO: NV ${this.progression.getLevel()} · XP ${this.progression.getTotalXp()} · C$ ${this.progression.getCash()} · PARTIDAS ${this.progression.getRuns()}`,

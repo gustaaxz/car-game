@@ -40,7 +40,12 @@ export class TrafficVehicle extends Entity {
     this.right = new THREE.Vector3(1, 0, 0);
     this.route = [];
     this.routeIndex = 0;
-    this.targetSpeed = this.spec.speed;
+    const personality = ((TRAFFIC_ID * 37) % 100) / 100;
+    this.driverProfile = {
+      speedFactor: 0.88 + personality * 0.22,
+      caution: 0.76 + (1 - personality) * 0.38,
+    };
+    this.targetSpeed = this.spec.speed * this.driverProfile.speedFactor;
     this._desired = new THREE.Vector3();
     this._temp = new THREE.Vector3();
 
@@ -96,6 +101,7 @@ export class TrafficVehicle extends Entity {
       emissiveIntensity: 0.55,
       roughness: 0.4,
     });
+    this.brakeLightMaterial = taillightMat;
 
     if (this.type === 'MOTORCYCLE') {
       this._buildMotorcycle(bodyMat, tireMat, chromeMat, blackMat, headlightMat, taillightMat);
@@ -655,6 +661,7 @@ export class TrafficVehicle extends Entity {
     this.velocity.set(0, 0, 0);
     this.route = route ?? [];
     this.routeIndex = this.route.length > 1 ? 1 : 0;
+    this.isBraking = false;
     this._refreshAxes();
   }
 
@@ -690,9 +697,18 @@ export class TrafficVehicle extends Entity {
 
     const forwardSpeed = this.velocity.dot(this.forward);
     const trafficFactor = trafficManager.getTrafficSpeedFactor(this);
-    const policeFactor = this._getPoliceYieldFactor(policeManager);
+    const signalFactor = trafficManager.getIntersectionSpeedFactor(this, target);
+    const emergencyFactor = trafficManager.getEmergencyYieldFactor(this, policeManager);
     const cornerFactor = THREE.MathUtils.clamp(1 - Math.abs(angleDelta) / 1.5, 0.28, 1);
-    const desiredSpeed = this.targetSpeed * trafficFactor * policeFactor * cornerFactor;
+    const desiredSpeed = this.targetSpeed * trafficFactor * signalFactor * emergencyFactor * cornerFactor;
+    this.isBraking = forwardSpeed > desiredSpeed + 0.4 || signalFactor < 0.3 || emergencyFactor < 0.3;
+    if (this.brakeLightMaterial) {
+      this.brakeLightMaterial.emissiveIntensity = THREE.MathUtils.lerp(
+        this.brakeLightMaterial.emissiveIntensity,
+        this.isBraking ? 2.2 : 0.55,
+        Math.min(1, deltaTime * 12)
+      );
+    }
 
     if (forwardSpeed < desiredSpeed) {
       this.velocity.addScaledVector(this.forward, GAME_CONFIG.traffic.acceleration * deltaTime);
@@ -727,18 +743,6 @@ export class TrafficVehicle extends Entity {
     this.object3D.rotation.y = this.heading;
     const collided = city.collision.resolveCircle(this.object3D.position, this.velocity, this.collisionRadius, 0.03);
     if (collided) this.velocity.multiplyScalar(0.45);
-  }
-
-  _getPoliceYieldFactor(policeManager) {
-    if (!policeManager) return 1;
-    let closest = Infinity;
-    for (const unit of policeManager.units) {
-      const d = unit.vehicle.object3D.position.distanceTo(this.object3D.position);
-      if (d < closest) closest = d;
-    }
-    if (closest < 6) return 0.22;
-    if (closest < 12) return 0.55;
-    return 1;
   }
 
   _refreshAxes() {

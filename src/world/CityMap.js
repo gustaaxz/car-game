@@ -693,8 +693,9 @@ export class CityMap {
   }
 
   _buildTunnel() {
-    const x = 280;
-    const z = -245;
+    const roads = GAME_CONFIG.city.roadCenters;
+    const x = roads.at(-1);
+    const z = roads[1] + (roads[2] - roads[1]) * 0.5;
     const width = GAME_CONFIG.city.roadWidth;
     const wallGeometry = new THREE.BoxGeometry(1.35, 5.7, 32);
     for (const side of [-1, 1]) {
@@ -715,8 +716,9 @@ export class CityMap {
   }
 
   _buildIndustrialOverpass() {
-    const x = -210;
-    const z = -245;
+    const roads = GAME_CONFIG.city.roadCenters;
+    const x = roads[2];
+    const z = roads[1] + (roads[2] - roads[1]) * 0.5;
     const beamMat = this._materials.industrial;
     const beam = new THREE.Mesh(new THREE.BoxGeometry(30, 0.85, 2.2), beamMat);
     beam.position.set(x, 6.4, z);

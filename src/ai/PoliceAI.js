@@ -22,12 +22,15 @@ export class PoliceAI {
     this.repathTimer = 0;
     this.searchTimer = 0;
     this.lastSeenPosition = new THREE.Vector3();
+    this.lastSeenVelocity = new THREE.Vector3();
     this.predictedPosition = new THREE.Vector3();
     this.tacticalTarget = new THREE.Vector3();
     this.hasTacticalTarget = false;
     this.hasVisualContact = false;
     this.jammed = false;
     this.patrolTarget = null;
+    this.searchWaypoints = [];
+    this.searchIndex = 0;
     this._setRandomPatrolTarget();
   }
 
@@ -41,6 +44,9 @@ export class PoliceAI {
     this.jammed = false;
     this.hasTacticalTarget = false;
     this.lastSeenPosition.copy(this.player.object3D.position);
+    this.lastSeenVelocity.set(0, 0, 0);
+    this.searchWaypoints = [];
+    this.searchIndex = 0;
     this._setRandomPatrolTarget();
   }
 
@@ -56,6 +62,7 @@ export class PoliceAI {
       this.path = [];
       this.pathIndex = 0;
       this.repathTimer = 0;
+      this._prepareSearchPattern();
     }
   }
 
@@ -76,10 +83,12 @@ export class PoliceAI {
     this.hasTacticalTarget = true;
   }
 
-  receiveDispatch(position) {
+  receiveDispatch(position, velocity = null) {
     if (!position) return;
     this.lastSeenPosition.copy(position);
+    if (velocity) this.lastSeenVelocity.copy(velocity);
     this.searchTimer = this.config.searchDuration;
+    this._prepareSearchPattern();
     if (this.state === PoliceAIState.PATROL || this.state === PoliceAIState.SEARCH) {
       this.state = this.role === PoliceRole.PURSUER ? PoliceAIState.SEARCH : PoliceAIState.INTERCEPT;
       this.path = [];
@@ -102,6 +111,7 @@ export class PoliceAI {
 
     if (detected) {
       this.lastSeenPosition.copy(playerPos);
+      this.lastSeenVelocity.copy(this.player.velocity);
       this.searchTimer = this.config.searchDuration;
       this.state = this.role === PoliceRole.PURSUER ? PoliceAIState.CHASE : PoliceAIState.INTERCEPT;
     } else if (this.role !== PoliceRole.PURSUER && this.hasTacticalTarget && this.searchTimer > 0) {
@@ -111,6 +121,7 @@ export class PoliceAI {
       this.state = PoliceAIState.SEARCH;
       this.searchTimer = this.config.searchDuration;
       this.path = [];
+      this._prepareSearchPattern();
     }
 
     if (this.state === PoliceAIState.PATROL) this._updatePatrol(deltaTime);
@@ -135,9 +146,20 @@ export class PoliceAI {
       return;
     }
 
-    this._ensurePathTo(this.lastSeenPosition);
+    if (this.searchWaypoints.length === 0) this._prepareSearchPattern();
+    let searchTarget = this.searchWaypoints[Math.min(this.searchIndex, this.searchWaypoints.length - 1)] ?? this.lastSeenPosition;
+    const distanceToSearch = this.vehicle.object3D.position.distanceTo(this._asVector3(searchTarget));
+    if (distanceToSearch < this.config.waypointRadius * 1.35 && this.searchIndex < this.searchWaypoints.length - 1) {
+      this.searchIndex += 1;
+      searchTarget = this.searchWaypoints[this.searchIndex];
+      this.path = [];
+      this.pathIndex = 0;
+      this.repathTimer = 0;
+    }
+
+    this._ensurePathTo(searchTarget);
     if (this.path.length === 0 || this.pathIndex >= this.path.length) {
-      this.vehicle.driveToward(deltaTime, this.lastSeenPosition, this.city.collision, 0.68);
+      this.vehicle.driveToward(deltaTime, searchTarget, this.city.collision, 0.68);
     } else {
       this._followPath(deltaTime, 0.74);
     }
@@ -217,6 +239,37 @@ export class PoliceAI {
     this.path = [];
     this.pathIndex = 0;
     this.repathTimer = 0;
+  }
+
+  _prepareSearchPattern() {
+    this.predictedPosition.copy(this.lastSeenPosition).addScaledVector(this.lastSeenVelocity, 1.15);
+    this.predictedPosition.x = THREE.MathUtils.clamp(this.predictedPosition.x, this.city.bounds.minX + 6, this.city.bounds.maxX - 6);
+    this.predictedPosition.z = THREE.MathUtils.clamp(this.predictedPosition.z, this.city.bounds.minZ + 6, this.city.bounds.maxZ - 6);
+
+    const origin = this.city.roadNetwork.getClosestNode(this.predictedPosition);
+    if (!origin) {
+      this.searchWaypoints = [{ x: this.predictedPosition.x, z: this.predictedPosition.z }];
+      this.searchIndex = 0;
+      return;
+    }
+
+    const candidates = [origin];
+    const firstRing = origin.neighbors.map((id) => this.city.roadNetwork.nodes.get(id)).filter(Boolean);
+    candidates.push(...firstRing);
+    for (const node of firstRing) {
+      for (const id of node.neighbors) {
+        const candidate = this.city.roadNetwork.nodes.get(id);
+        if (candidate && !candidates.includes(candidate)) candidates.push(candidate);
+      }
+    }
+
+    candidates.sort((a, b) => {
+      const da = Math.hypot(a.x - this.predictedPosition.x, a.z - this.predictedPosition.z);
+      const db = Math.hypot(b.x - this.predictedPosition.x, b.z - this.predictedPosition.z);
+      return da - db;
+    });
+    this.searchWaypoints = candidates.slice(0, 6).map((node) => ({ x: node.x, z: node.z }));
+    this.searchIndex = 0;
   }
 
   _asVector3(point) {

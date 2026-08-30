@@ -20,6 +20,9 @@ export class PoliceManager {
     this.allEvadedTimer = 0;
     this.jammerTimer = 0;
     this.vehiclePool = new Map();
+    this.sharedLastSeenPosition = player.object3D.position.clone();
+    this.sharedLastSeenVelocity = player.velocity.clone();
+    this.sharedContactAge = Infinity;
 
     this.roadblocks = new RoadblockSystem(scene, city, player);
     this.helicopter = new PoliceHelicopter(scene);
@@ -36,6 +39,9 @@ export class PoliceManager {
     this.visualPursuitActive = false;
     this.allEvadedTimer = 0;
     this.jammerTimer = 0;
+    this.sharedLastSeenPosition.copy(this.player.object3D.position);
+    this.sharedLastSeenVelocity.set(0, 0, 0);
+    this.sharedContactAge = 0;
     this._applyProfile(this.wanted.getProfile(), true);
   }
 
@@ -46,15 +52,16 @@ export class PoliceManager {
 
     this.jammerTimer = Math.max(0, this.jammerTimer - deltaTime);
     const jammed = this.jammerTimer > 0;
+    this.sharedContactAge += deltaTime;
     for (const unit of this.units) unit.ai.setJammed(jammed);
 
     this.dispatchTimer -= deltaTime;
     if (this.dispatchTimer <= 0) {
-      if (!jammed) this._dispatchSearchingUnits();
+      if (!jammed) this._dispatchSearchingUnits(profile);
       this.dispatchTimer = GAME_CONFIG.wanted.dispatchInterval;
     }
 
-    if (!jammed) this.coordinator.update(deltaTime, this.units, profile);
+    if (!jammed) this.coordinator.update(deltaTime, this.units, profile, this._getSharedIntel());
 
     let anyVisualContact = false;
     for (const unit of this.units) {
@@ -72,6 +79,9 @@ export class PoliceManager {
       anyVisualContact ||= hasVisual;
 
       if (hasVisual) {
+        this.sharedLastSeenPosition.copy(this.player.object3D.position);
+        this.sharedLastSeenVelocity.copy(this.player.velocity);
+        this.sharedContactAge = 0;
         unit.evadeArmed = true;
         unit.lostVisualTime = 0;
       } else if (unit.evadeArmed) {
@@ -110,7 +120,7 @@ export class PoliceManager {
     for (const unit of this.units) {
       const variantFactor = unit.variant === 'INTERCEPTOR' ? 1.04 : unit.variant === 'SPECIAL' ? 1.02 : 1;
       unit.vehicle.setPerformanceMultiplier(profile.speedMultiplier * variantFactor);
-      if (!this.isJammed()) unit.ai.receiveDispatch(this.player.object3D.position);
+      if (!this.isJammed()) unit.ai.receiveDispatch(this.sharedLastSeenPosition, this.sharedLastSeenVelocity);
       else unit.ai.setJammed(true);
     }
 
@@ -136,7 +146,7 @@ export class PoliceManager {
 
     const ai = new PoliceAI(vehicle, this.player, this.city);
     ai.reset();
-    if (!this.isJammed()) ai.receiveDispatch(this.player.object3D.position);
+    if (!this.isJammed()) ai.receiveDispatch(this.sharedLastSeenPosition, this.sharedLastSeenVelocity);
     else ai.setJammed(true);
 
     this.units.push({
@@ -175,8 +185,24 @@ export class PoliceManager {
     return { x: fallback.x, z: fallback.z, heading: Math.atan2(-dx, -dz) };
   }
 
-  _dispatchSearchingUnits() {
-    for (const unit of this.units) unit.ai.receiveDispatch(this.player.object3D.position);
+  _dispatchSearchingUnits(profile) {
+    if (profile?.helicopter) {
+      this.sharedLastSeenPosition.copy(this.player.object3D.position);
+      this.sharedLastSeenVelocity.copy(this.player.velocity);
+      this.sharedContactAge = 0;
+    }
+    if (this.sharedContactAge > GAME_CONFIG.police.searchDuration) return;
+    for (const unit of this.units) {
+      if (!unit.ai.hasVisualContact) unit.ai.receiveDispatch(this.sharedLastSeenPosition, this.sharedLastSeenVelocity);
+    }
+  }
+
+  _getSharedIntel() {
+    return {
+      position: this.sharedLastSeenPosition,
+      velocity: this.sharedLastSeenVelocity,
+      age: this.sharedContactAge,
+    };
   }
 
   _poolUnit(unit) {
